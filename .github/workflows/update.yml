@@ -1,0 +1,27 @@
+name: update-a7cgg
+
+on:
+  schedule:
+    - cron: '17 * * * *'      # hourly (~:17 past the hour); catches same-day legs once they land
+  workflow_dispatch: {}       # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write             # allow the job to commit the refreshed JSON
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pull ADS-B history and rebuild JSON
+        run: python collect.py
+      - name: Commit if changed
+        run: |
+          git config user.name  "a7cgg-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/a7cgg.json
+          git commit -m "auto: refresh A7-CGG legs $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "no changes"
+          git push
