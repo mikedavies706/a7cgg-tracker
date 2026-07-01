@@ -77,6 +77,21 @@ def load_points():
         except Exception as ex:
             print(f"  {day}: no data ({ex})")
         day += datetime.timedelta(days=1)
+    # adsb.lol's daily archive lags ~a day for the current date; the live trace
+    # endpoint carries today's (and recent) flights, so pull it too and merge.
+    try:
+        raw = get(f"https://globe.adsb.lol/data/traces/{ICAO[-2:]}/trace_full_{ICAO}.json")
+        if raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+        d = json.loads(raw); base = d["timestamp"]; n = 0
+        for e in d.get("trace", []):
+            lat, lon, alt = e[1], e[2], e[3]
+            if lat is None or lon is None: continue
+            av = None if (alt is None or alt == "ground") else float(alt)
+            pts.append((base + e[0], lat, lon, av, alt == "ground")); n += 1
+        print(f"  live trace: +{n} points")
+    except Exception as ex:
+        print(f"  live trace: none ({ex})")
     pts.sort(key=lambda x: x[0])
     dd, last = [], -1
     for p in pts:
